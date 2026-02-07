@@ -41,5 +41,4 @@ yarn-error.log*
 next-env.d.ts
 
 ml/serviceAccountKey.json
-ml/venv/
-ml/models/
+
