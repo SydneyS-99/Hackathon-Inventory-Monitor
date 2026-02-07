@@ -22,13 +22,78 @@ type Place = {
   name: string;
   url?: string;
   phone?: string;
-  rating?: number;
-  reviewCount?: number;
-  distanceMeters?: number;
   location?: { display_address?: string[] };
   coordinates?: { latitude: number; longitude: number };
   categories?: string[];
 };
+
+
+const DONATION_SITES: Place[] = [
+  {
+    id: "don-1",
+    name: "Cornerstone Food Pantry",
+    location: { display_address: ["4680 Lexington Rd. , Athens , GA 30605, USA"] },
+    url: "https://ampleharvest.org/food-pantries/cornerstone-food-pantry-3549/?usertype=",
+    phone: "706-549-0000",
+    coordinates: { latitude: 33.9163, longitude: -83.2952 },
+    categories: ["Food bank", "Hours: Mon–Fri 9am–11am"],
+  },
+  {
+    id: "don-2",
+    name: "Food Bank of Northeast Georgia",
+    location: { display_address: ["861 Newton Bridge Road, Athens, GA 30607, USA"] },
+    url: "https://ampleharvest.org/food-pantries/food-bank-of-northeast-georgia-843/?usertype=",
+    phone: "706-354-8191",
+    coordinates: { latitude: 33.987, longitude: -83.395 },
+    categories: ["Food pantry", "Hours: Tue/Thu 8am–4pm"],
+  },
+  {
+    id: "don-3",
+    name: "Storehouse Ministry",
+    location: { display_address: ["36 Piedmont Drive, Winder, GA 30680, USA"] },
+    url: "https://ampleharvest.org/food-pantries/storehouse-ministry-5747/?usertype=",
+    phone: "770-709-2244",
+    coordinates: { latitude: 33.714, longitude: -84.538 },
+    categories: ["Food pantry", "Hours: Tue/Thu 12pm–1pm"],
+  },
+  {
+    id: "don-4",
+    name: "The Shepherd's Staff Ministries, Inc.",
+    location: { display_address: ["2240 Commerce Dr, Loganville, GA 30052"] },
+    url: "https://ampleharvest.org/food-pantries/the-shepherds-staff-ministries-inc-9205/?usertype=",
+    phone: "770-842-8392",
+    coordinates: { latitude: 33.855591, longitude: -83.876477 },
+    categories: ["Food pantry", "Hours: Tue/Thu 11am–2pm"],
+  },
+  {
+    id: "don-5",
+    name: "Chat and Chew Emergency Food Pantry",
+    location: { display_address: ["22 Segar Street, Bowman, GA 30624, USA"] },
+    url: "https://ampleharvest.org/food-pantries/chat-and-chew-emergency-food-pantry-5169/?usertype=",
+    phone: "706-461-4159",
+    coordinates: { latitude: 34.1952, longitude: -83.0039 },
+    categories: ["Food pantry", "Hours: Tue/Thu 12pm–2pm"],
+  },
+  {
+    id: "don-6",
+    name: "Clifford Grove Food Pantry",
+    location: { display_address: ["2471 Callaway Rd, Rayle, GA, USA"] },
+    url: "https://ampleharvest.org/food-pantries/clifford-grove-food-pantry-10346/?usertype=",
+    phone: "706-206-8236",
+    coordinates: { latitude: 33.7915, longitude: -82.9032 },
+    categories: ["Food pantry", "Hours: Tue/Thu 12pm–2pm"],
+  },
+   {
+    id: "don-7",
+    name: "Greene County Food Pantry",
+    location: { display_address: ["519 Morningside Apt., Greensboro, GA 30642, USA"] },
+    url: "https://ampleharvest.org/food-pantries/greene-county-food-pantry-5345/?usertype=",
+    phone: "706-453-1380",
+    coordinates: { latitude: 33.590599, longitude: -83.174724 },
+    categories: ["Food pantry", "Hours: Tue/Thu 10am–2:30pm"],
+  },
+
+];
 
 export default function SustainabilityPage() {
   const router = useRouter();
@@ -37,11 +102,26 @@ export default function SustainabilityPage() {
   const [stats, setStats] = useState<any | null>(null);
   const [status, setStatus] = useState("");
 
-  // Donations section
-  const [geoStatus, setGeoStatus] = useState<string>("");
-  const [center, setCenter] = useState<{ lat: number; lng: number } | null>(null);
-  const [places, setPlaces] = useState<Place[]>([]);
-  const [placesStatus, setPlacesStatus] = useState<string>("");
+  // map center: use browser location if allowed, else fallback to Athens
+  const [center, setCenter] = useState<{ lat: number; lng: number }>({
+    lat: 33.9519,
+    lng: -83.3576,
+  });
+
+  useEffect(() => {
+    // try to get location for nicer UX (optional)
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setCenter({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        },
+        () => {
+          // ignore errors; keep fallback
+        },
+        { enableHighAccuracy: true, timeout: 8000 }
+      );
+    }
+  }, []);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (u) => {
@@ -73,54 +153,6 @@ export default function SustainabilityPage() {
 
     return () => unsub();
   }, [router]);
-
-  async function useMyLocation() {
-    setGeoStatus("");
-    setPlaces([]);
-    setPlacesStatus("");
-
-    if (!navigator.geolocation) {
-      setGeoStatus("Geolocation not supported in this browser.");
-      return;
-    }
-
-    setGeoStatus("Getting your location...");
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setGeoStatus("✅ Location set");
-        setCenter({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-      },
-      (err) => {
-        setGeoStatus(`Location error: ${err.message}`);
-      },
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
-  }
-
-  async function findDonationPlaces() {
-    if (!center) {
-      setPlacesStatus("Set your location first.");
-      return;
-    }
-
-    setPlacesStatus("Searching nearby food banks / donation locations...");
-
-    const res = await fetch(
-      `/api/donations?lat=${center.lat}&lng=${center.lng}&radius=8000&limit=12`,
-      { cache: "no-store" }
-    );
-
-    if (!res.ok) {
-      const txt = await res.text();
-      setPlacesStatus("❌ Failed to load donation locations");
-      console.error(txt);
-      return;
-    }
-
-    const data = await res.json();
-    setPlaces(data.businesses ?? []);
-    setPlacesStatus(`✅ Found ${(data.businesses ?? []).length} places`);
-  }
 
   return (
     <main style={{ padding: 24, maxWidth: 1100 }}>
@@ -173,47 +205,43 @@ export default function SustainabilityPage() {
         )}
       </section>
 
-      {/* NEW: Donation finder */}
+      {/* ✅ Donation section (hardcoded) */}
       <section style={{ marginTop: 28 }}>
         <h2>Donate instead of waste</h2>
         <p style={{ maxWidth: 900 }}>
-          If you have items at risk, consider donating to nearby food banks, pantries, or donation centers.
-          We’ll use Yelp to find nearby locations and show them on the map.
+          If you have items at risk, consider donating to nearby food banks and pantries.
+          Here are verified local donation locations you can use.
         </p>
 
-        <div style={{ display: "flex", gap: 10, marginTop: 12, alignItems: "center" }}>
-          <button onClick={useMyLocation}>Use my location</button>
-          <button onClick={findDonationPlaces} disabled={!center}>
-            Find nearby donation places
-          </button>
-          <span style={{ fontSize: 13, opacity: 0.8 }}>{geoStatus || placesStatus}</span>
+        <div style={{ marginTop: 14 }}>
+          <DonationsMap center={center} places={DONATION_SITES} />
         </div>
 
-        {center && (
-          <div style={{ marginTop: 14 }}>
-            <DonationsMap center={center} places={places} />
-          </div>
-        )}
-
-        {places.length > 0 && (
-          <div style={{ marginTop: 12 }}>
-            <h3>Nearby locations</h3>
-            <ul>
-              {places.map((p) => (
-                <li key={p.id} style={{ marginBottom: 8 }}>
-                  <b>{p.name}</b>
-                  {p.distanceMeters != null ? ` — ${Math.round(p.distanceMeters)} m` : ""}
+        <div style={{ marginTop: 14 }}>
+          <h3>Locations</h3>
+          <ul>
+            {DONATION_SITES.map((p) => (
+              <li key={p.id} style={{ marginBottom: 10 }}>
+                <b>{p.name}</b>
+                <div style={{ fontSize: 13, opacity: 0.85 }}>
+                  {p.location?.display_address?.[0] ?? ""}
+                </div>
+                <div style={{ fontSize: 13, opacity: 0.85 }}>
+                  {p.categories?.join(" · ")}
+                </div>
+                <div style={{ fontSize: 13, opacity: 0.85 }}>
+                  {p.phone ? `📞 ${p.phone}` : ""}
                   {p.url ? (
                     <>
                       {" "}
-                      · <a href={p.url} target="_blank" rel="noreferrer">Yelp</a>
+                      · <a href={p.url} target="_blank" rel="noreferrer">Website</a>
                     </>
                   ) : null}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
       </section>
     </main>
   );
