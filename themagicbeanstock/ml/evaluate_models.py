@@ -1,11 +1,14 @@
 import pandas as pd
 import numpy as np
-from sklearn.ensemble import RandomForestRegressor
+import joblib
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
 DATA = "demo_menu_sales_history_180d.csv"
+MODEL_DIR = "models"
+
 df = pd.read_csv(DATA)
 df["date"] = pd.to_datetime(df["date"])
-df = df.sort_values(["menuItemId", "date"])
+df = df.sort_values(["menuItemId","date"])
 
 FEATURES = ["dow","month","trendIndex","isPromoDay","lag1","lag7","roll7","roll28"]
 
@@ -21,44 +24,66 @@ def make_features(g):
     g["roll28"] = g["unitsSold"].shift(1).rolling(28).mean()
     return g.dropna()
 
-def mae(y, yhat): return float(np.mean(np.abs(y - yhat)))
-def rmse(y, yhat): return float(np.sqrt(np.mean((y - yhat)**2)))
-def mape(y, yhat):
-    y = np.array(y)
-    mask = y != 0
-    if mask.sum() == 0: return float("nan")
-    return float(np.mean(np.abs((y[mask] - yhat[mask]) / y[mask])) * 100.0)
+# --- sMAPE function ---
+def smape(y_true, y_pred):
+    y_true = np.array(y_true)
+    y_pred = np.array(y_pred)
+    denom = (np.abs(y_true) + np.abs(y_pred)) / 2.0
+    diff = np.abs(y_true - y_pred) / np.where(denom == 0, 1, denom)
+    return np.mean(diff) * 100
 
-summary = []
+all_actual = []
+all_pred = []
+
+print("\n📊 PER-MENU ITEM PERFORMANCE\n")
 
 for mid, g in df.groupby("menuItemId"):
     g2 = make_features(g)
-    n = len(g2)
-    if n < 40:
+    if len(g2) < 40:
         continue
 
-    split = int(n * 0.8)
-    train = g2.iloc[:split]
-    test = g2.iloc[split:]
+    test = g2.iloc[-30:]
 
-    Xtr, ytr = train[FEATURES], train["unitsSold"].values
-    Xte, yte = test[FEATURES], test["unitsSold"].values
+    pack = joblib.load(f"{MODEL_DIR}/{mid}.joblib")
+    model = pack["model"]
 
-    model = RandomForestRegressor(n_estimators=300, random_state=42, max_depth=12)
-    model.fit(Xtr, ytr)
+    X_test = test[FEATURES]
+    y_test = test["unitsSold"]
 
-    pred = model.predict(Xte)
+    preds = model.predict(X_test)
 
-    summary.append({
-        "menuItemId": mid,
-        "test_days": len(test),
-        "MAE_units": mae(yte, pred),
-        "RMSE_units": rmse(yte, pred),
-        "MAPE_%": mape(yte, pred),
-        "avg_units_sold": float(np.mean(yte)),
-    })
+    mae = mean_absolute_error(y_test, preds)
+    mse = mean_squared_error(y_test, preds)
+    rmse = np.sqrt(mse)
+    r2 = r2_score(y_test, preds)
+    smape_val = smape(y_test, preds)
+    accuracy = 100 - smape_val
 
-out = pd.DataFrame(summary).sort_values("MAE_units")
-print(out.to_string(index=False))
-print("\nOverall MAE:", out["MAE_units"].mean())
-print("Overall RMSE:", out["RMSE_units"].mean())
+    print(f"{mid}:")
+    print(f"   Accuracy: {accuracy:.2f}%")
+    print(f"   sMAPE: {smape_val:.2f}%")
+    print(f"   R^2: {r2:.3f}")
+    print(f"   MAE: {mae:.2f}")
+    print(f"   MSE: {mse:.2f}")
+    print(f"   RMSE: {rmse:.2f}\n")
+
+    all_actual.extend(y_test.tolist())
+    all_pred.extend(preds.tolist())
+
+# ---- OVERALL ----
+mae = mean_absolute_error(all_actual, all_pred)
+mse = mean_squared_error(all_actual, all_pred)
+rmse = np.sqrt(mse)
+r2 = r2_score(all_actual, all_pred)
+smape_val = smape(all_actual, all_pred)
+accuracy = 100 - smape_val
+
+print("\n🏆 OVERALL MODEL PERFORMANCE")
+print("--------------------------------")
+print(f"Accuracy: {accuracy:.2f}%")
+print(f"sMAPE: {smape_val:.2f}%")
+print(f"R^2 Score: {r2:.3f}")
+print(f"MAE: {mae:.2f}")
+print(f"MSE: {mse:.2f}")
+print(f"RMSE: {rmse:.2f}")
+print("--------------------------------")

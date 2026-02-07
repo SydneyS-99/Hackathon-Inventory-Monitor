@@ -32,7 +32,7 @@ for mid, g in df.groupby("menuItemId"):
     model = RandomForestRegressor(
         n_estimators=300,
         random_state=42,
-        max_depth=12
+        max_depth=3
     )
     model.fit(X, y)
 
