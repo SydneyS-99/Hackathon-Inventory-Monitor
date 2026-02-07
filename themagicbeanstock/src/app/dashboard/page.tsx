@@ -117,6 +117,7 @@ export default function DashboarxsdPage() {
       <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
         <button onClick={() => setTab("inventory")}>Inventory</button>
         <button onClick={() => setTab("calculator")}>Order Calculator</button>
+        <button onClick={() => router.push("/forecast")}>Forecasts</button>
       </div>
 
       <p style={{ marginTop: 10 }}>{status}</p>
