@@ -30,9 +30,10 @@ for mid, g in df.groupby("menuItemId"):
     y = g2["unitsSold"]
 
     model = RandomForestRegressor(
-        n_estimators=300,
+        n_estimators=600,
         random_state=42,
-        max_depth=3
+        max_depth=12
+
     )
     model.fit(X, y)
 
