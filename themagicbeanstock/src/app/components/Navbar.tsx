@@ -256,7 +256,7 @@ export default function Navbar({
               <img src={logo} alt={logoAlt} className="logo" />
             ) : (
               <Link href="/" className="brand-text-link" aria-label="Go to home">
-                {brandText} ☕✨
+                {brandText}
               </Link>
             )}
           </div>
