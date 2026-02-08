@@ -1,5 +1,7 @@
 .auth-page {
   min-height: 100vh;
+  position: relative;        /* ✅ anchor for absolute background */
+  overflow: hidden;          /* ✅ keeps canvas clean */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -9,6 +11,8 @@
 }
 
 .auth-card {
+  position: relative;        /* ✅ layer above background */
+  z-index: 2;                /* ✅ above FloatingLines */
   width: 100%;
   max-width: 440px;
   background: rgba(21, 18, 37, 0.95);
@@ -17,6 +21,7 @@
   padding: 40px 34px;
   box-shadow: 0 20px 55px rgba(0, 0, 0, 0.45);
 }
+
 
 .auth-title {
   color: #fff;

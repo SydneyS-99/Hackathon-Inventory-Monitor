@@ -1,5 +1,5 @@
 "use client";
-
+import FloatingLines from "../components/background";
 import { auth } from "../../../lib/firebase";
 import {
   createUserWithEmailAndPassword,
@@ -46,18 +46,20 @@ export default function SignUpPage() {
 
   return (
     <main className="auth-page">
+      <FloatingLines />
       <div className="auth-card">
         <h1 className="auth-title">Create your account</h1>
-        <p className="auth-subtitle">Join The Magic Bean Stock ☕✨</p>
+        <p className="auth-subtitle">Join The Magic Bean Stock</p>
 
         <form className="auth-form" onSubmit={handleSignup}>
           <label className="auth-label">
-            Name (optional)
+            Name
             <input
               className="auth-input"
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
-              placeholder="Nikki"
+              placeholder="Enter your name here..."
+              required
               disabled={loading}
             />
           </label>
@@ -71,6 +73,7 @@ export default function SignUpPage() {
               onChange={(e) => setEmail(e.target.value)}
               autoComplete="email"
               required
+              placeholder="Enter your email here..."
               disabled={loading}
             />
           </label>
@@ -84,6 +87,7 @@ export default function SignUpPage() {
               onChange={(e) => setPassword(e.target.value)}
               autoComplete="new-password"
               required
+              placeholder="Enter your password here..."
               disabled={loading}
             />
           </label>
@@ -97,6 +101,7 @@ export default function SignUpPage() {
               onChange={(e) => setConfirm(e.target.value)}
               autoComplete="new-password"
               required
+              placeholder="Confirm your password here..."
               disabled={loading}
             />
           </label>

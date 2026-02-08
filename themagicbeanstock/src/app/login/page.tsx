@@ -1,5 +1,6 @@
 "use client";
 
+import FloatingLines from "../components/background";
 import { auth } from "../../../lib/firebase";
 import {
   GoogleAuthProvider,
@@ -38,7 +39,7 @@ export default function LoginPage() {
     try {
       const provider = new GoogleAuthProvider();
       await signInWithPopup(auth, provider);
-      router.push("/");
+      router.push("/upload");
     } catch (err: any) {
       setError(err?.message || "Google sign-in failed.");
     } finally {
@@ -48,8 +49,9 @@ export default function LoginPage() {
 
   return (
     <main className="auth-page">
+      <FloatingLines />
       <div className="auth-card">
-        <h1 className="auth-title">The Magic Bean Stock ☕✨</h1>
+        <h1 className="auth-title">The Magic Bean Stock</h1>
         <p className="auth-subtitle">Sign in to manage your inventory.</p>
 
         <form className="auth-form" onSubmit={handleEmailLogin}>
@@ -60,7 +62,7 @@ export default function LoginPage() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@restaurant.com"
+              placeholder="Enter your email here..."
               autoComplete="email"
               required
               disabled={loading}
@@ -90,7 +92,12 @@ export default function LoginPage() {
           <span>or</span>
         </div>
 
-        <button className="google-btn" onClick={handleGoogleLogin} disabled={loading}>
+        <button
+          className="google-btn"
+          onClick={handleGoogleLogin}
+          disabled={loading}
+          type="button"
+        >
           Continue with Google
         </button>
 
