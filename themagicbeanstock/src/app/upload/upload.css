@@ -1,0 +1,299 @@
+/* Upload page — The Magic Bean Stock */
+
+.upload-page {
+  min-height: 100vh;
+  padding: 32px 18px 60px;
+  background: radial-gradient(circle at top, #1f1b2e, #0f0c1a);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: rgba(255, 255, 255, 0.92);
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* Optional subtle texture layer */
+.upload-bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(900px 500px at 20% 10%, rgba(139, 92, 246, 0.18), transparent 60%),
+    radial-gradient(800px 500px at 80% 20%, rgba(99, 102, 241, 0.14), transparent 60%),
+    radial-gradient(700px 600px at 50% 90%, rgba(236, 72, 153, 0.10), transparent 60%);
+  filter: blur(0px);
+  opacity: 0.9;
+}
+
+.upload-container {
+  max-width: 780px;
+  margin: 0 auto;
+  position: relative;
+  z-index: 1;
+}
+
+.upload-title {
+  margin: 0 0 10px;
+  font-size: 2rem;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+}
+
+.upload-subtitle {
+  margin: 0 0 18px;
+  color: rgba(201, 198, 221, 0.95);
+  line-height: 1.5;
+}
+
+.upload-card {
+  background: rgba(21, 18, 37, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 16px;
+  padding: 18px 18px;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+}
+
+.upload-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: end;
+}
+
+.upload-label {
+  display: grid;
+  gap: 8px;
+  font-size: 0.92rem;
+  color: rgba(215, 212, 234, 0.9);
+}
+
+.upload-select {
+  height: 42px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.92);
+  outline: none;
+}
+
+.upload-select:focus {
+  border-color: rgba(99, 102, 241, 0.7);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.18);
+}
+
+.upload-file {
+  height: 42px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px dashed rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.85);
+  outline: none;
+  min-width: 280px;
+}
+
+.upload-file::file-selector-button {
+  margin-right: 12px;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.92);
+  cursor: pointer;
+}
+
+.upload-file::file-selector-button:hover {
+  background: rgba(255, 255, 255, 0.10);
+}
+
+.upload-status {
+  margin-top: 14px;
+  display: grid;
+  gap: 6px;
+  font-size: 0.95rem;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.upload-status b {
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.upload-divider {
+  margin: 18px 0;
+  border: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.10);
+}
+
+.upload-help {
+  font-size: 0.92rem;
+  line-height: 1.5;
+  color: rgba(201, 198, 221, 0.95);
+}
+
+.upload-help ul {
+  margin: 10px 0 0;
+  padding-left: 18px;
+}
+
+.upload-help code {
+  padding: 2px 6px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.upload-note {
+  margin-top: 10px;
+  opacity: 0.95;
+}
+
+/* Dataset presence panel */
+.dataset-panel-title {
+  margin: 0 0 10px;
+  font-size: 0.95rem;
+  color: rgba(215, 212, 234, 0.9);
+}
+
+.dataset-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+@media (min-width: 640px) {
+  .dataset-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.dataset-chip {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.dataset-chip strong {
+  font-size: 0.95rem;
+  font-weight: 750;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.dataset-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.9rem;
+  color: rgba(201, 198, 221, 0.95);
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.dot.ok {
+  background: rgba(34, 197, 94, 0.9);
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.18);
+}
+
+.dot.missing {
+  background: rgba(248, 113, 113, 0.95);
+  box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.16);
+}
+
+.dot.loading {
+  background: rgba(99, 102, 241, 0.95);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.18);
+  animation: pulse 0.95s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0% { transform: scale(0.95); opacity: 0.7; }
+  50% { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(0.95); opacity: 0.7; }
+}
+
+/* Train button row */
+.train-row {
+  margin-top: 14px;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.train-btn {
+  height: 42px;
+  padding: 0 16px;
+  border-radius: 10px;
+  border: 0;
+  cursor: pointer;
+  font-weight: 750;
+  color: #fff;
+  background: linear-gradient(135deg, #8b5cf6, #6366f1);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  white-space: nowrap;
+}
+
+.train-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 24px rgba(99, 102, 241, 0.35);
+}
+
+.train-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Small inline status (to the right of the button) */
+.train-inline-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(215, 212, 234, 0.92);
+  font-size: 0.92rem;
+}
+
+.train-inline-status strong {
+  color: rgba(255, 255, 255, 0.95);
+  font-weight: 750;
+}
+
+.train-inline-status.success {
+  border-color: rgba(34, 197, 94, 0.22);
+  background: rgba(34, 197, 94, 0.08);
+}
+
+.train-inline-status.error {
+  border-color: rgba(248, 113, 113, 0.22);
+  background: rgba(248, 113, 113, 0.08);
+}
+
+.train-inline-status.loading {
+  border-color: rgba(99, 102, 241, 0.25);
+  background: rgba(99, 102, 241, 0.09);
+}
