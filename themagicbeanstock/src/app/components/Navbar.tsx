@@ -95,7 +95,7 @@ export default function Navbar({
       links: [{ label: "Open", href: "/sustainability", ariaLabel: "Go to Sustainability" }],
     },
     {
-      label: "Inventory",
+      label: "Upload Datasets",
       bgColor: "#0f172a",
       textColor: "#ffffff",
       links: [{ label: "Open", href: "/upload", ariaLabel: "Go to Inventory" }],

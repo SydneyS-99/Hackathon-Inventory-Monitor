@@ -6,6 +6,12 @@ import { onAuthStateChanged } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import { collection, getDocs, query, where } from "firebase/firestore";
 
+import FloatingLines from "../components/background";
+
+// ✅ Reuse dashboard styles for cards/tables/buttons/pagination look
+import "../dashboard/dashboard.css";
+import "./order-plan.css";
+
 type ForecastRow = { menuItemId: string; predictedUnits: number };
 type MenuRow = { name: string; recipeId: string };
 type RecipeIng = { itemName: string; unit: string; amountPerServing: number };
@@ -20,6 +26,15 @@ type InventoryRow = {
 function round(n: number, d = 2) {
   const m = Math.pow(10, d);
   return Math.round(n * m) / m;
+}
+
+function Stat({ label, value }: { label: string; value: any }) {
+  return (
+    <div className="kpi-card">
+      <div className="kpi-label">{label}</div>
+      <div className="kpi-value">{value}</div>
+    </div>
+  );
 }
 
 export default function OrderPlanPage() {
@@ -44,7 +59,10 @@ export default function OrderPlanPage() {
     }[]
   >([]);
 
-  // summary stats
+  // ✅ Dashboard-style pagination state
+  const [pageSize, setPageSize] = useState<number>(25);
+  const [page, setPage] = useState<number>(1);
+
   const stats = useMemo(() => {
     const totalPredicted = forecastDisplay.reduce((s, r) => s + r.predictedUnits, 0);
 
@@ -77,7 +95,6 @@ export default function OrderPlanPage() {
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(row);
     }
-    // sort each supplier bucket by item name
     for (const [k, arr] of map.entries()) {
       arr.sort((a, b) => a.itemName.localeCompare(b.itemName));
       map.set(k, arr);
@@ -99,6 +116,7 @@ export default function OrderPlanPage() {
     setStatus("Loading forecasts...");
     setForecastDisplay([]);
     setIngredientRows([]);
+    setPage(1);
 
     // 1) forecasts for selected date
     const forecastSnap = await getDocs(
@@ -116,7 +134,7 @@ export default function OrderPlanPage() {
 
     setStatus("Loading menu catalog, recipes, and inventory...");
 
-    // 2) menu catalog (map menuItemId -> {name, recipeId})
+    // 2) menu catalog
     const menuSnap = await getDocs(collection(db, "users", uid, "menuCatalog"));
     const menuMap = new Map<string, MenuRow>();
     menuSnap.docs.forEach((d) => {
@@ -124,7 +142,7 @@ export default function OrderPlanPage() {
       menuMap.set(d.id, { name: String(x.name ?? d.id), recipeId: String(x.recipeId ?? "") });
     });
 
-    // 3) recipes (map recipeId -> recipe doc)
+    // 3) recipes
     const recipeSnap = await getDocs(collection(db, "users", uid, "recipes"));
     const recipeMap = new Map<string, RecipeRow>();
     recipeSnap.docs.forEach((d) => {
@@ -135,7 +153,7 @@ export default function OrderPlanPage() {
       });
     });
 
-    // 4) inventory (map itemName -> inventory doc)
+    // 4) inventory
     const invSnap = await getDocs(collection(db, "users", uid, "inventory"));
     const invMap = new Map<string, InventoryRow>();
     invSnap.docs.forEach((d) => {
@@ -148,7 +166,7 @@ export default function OrderPlanPage() {
       });
     });
 
-    // 5) build forecast display with names
+    // keep forecastDisplay for stats
     const forecastRows = forecasts
       .map((f) => {
         const menu = menuMap.get(f.menuItemId);
@@ -159,11 +177,11 @@ export default function OrderPlanPage() {
         };
       })
       .sort((a, b) => a.menuName.localeCompare(b.menuName));
-
     setForecastDisplay(forecastRows);
 
-    // 6) compute ingredient totals
+    // compute ingredient totals
     setStatus("Computing ingredient needs...");
+
     const needs = new Map<
       string,
       { itemName: string; unit: string; needed: number; inStock: number; supplier: string }
@@ -210,117 +228,266 @@ export default function OrderPlanPage() {
       .sort((a, b) => b.toOrder - a.toOrder);
 
     setIngredientRows(ingredientList);
-    setStatus("✅ Order plan ready");
+
+    // No "✅ Order plan ready"
+    setStatus("");
   }
 
-  return (
-    <main style={{ padding: 24, maxWidth: 1100 }}>
-      <h1>AI Order Plan</h1>
-      <p>
-        Select a forecasted date. We’ll translate predicted menu demand into ingredient needs and
-        order quantities.
-      </p>
+  // ✅ Dashboard-style pagination derived values
+  const totalItems = ingredientRows.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const safePage = Math.min(Math.max(page, 1), totalPages);
 
-      <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 12 }}>
-        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-        <button onClick={generatePlan}>Generate Plan</button>
+  const startIndex = (safePage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, totalItems);
+  const pagedIngredients = ingredientRows.slice(startIndex, endIndex);
+
+  useEffect(() => {
+    if (page !== safePage) setPage(safePage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pageSize, totalItems]);
+
+  const canPrev = safePage > 1;
+  const canNext = safePage < totalPages;
+
+  return (
+    <main className="order-page">
+      <div className="order-bg" aria-hidden="true">
+        <FloatingLines
+          enabledWaves={["top", "middle", "bottom"]}
+          lineCount={[7, 6, 7]}
+          lineDistance={[5, 5, 5]}
+          animationSpeed={1}
+          interactive={true}
+          parallax={true}
+        />
       </div>
 
-      <p style={{ marginTop: 10 }}>{status}</p>
+      <div className="order-content">
+        <header className="dash-header">
+          <div>
+            <h1 className="dash-title">AI Order Plan</h1>
+            <p className="dash-subtitle">
+              Pick a forecast date. We’ll convert predicted demand into ingredient needs and supplier orders.
+            </p>
+          </div>
 
-      {/* Stats */}
-      {(forecastDisplay.length > 0 || ingredientRows.length > 0) && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginTop: 16 }}>
-          <Stat label="Menu items forecasted" value={stats.menuItems} />
-          <Stat label="Total dishes predicted" value={stats.totalPredicted} />
-          <Stat label="Ingredients tracked" value={stats.ingredients} />
-          <Stat label="Ingredients needing order" value={stats.shortageLines} />
-          <Stat label="Suppliers involved" value={stats.suppliersCount} />
-          <Stat label="Inventory coverage" value={`${stats.coveragePct}%`} />
+          <div className="dash-actions">
+            <button className="dash-btn" onClick={() => router.push("/dashboard")} type="button">
+              Dashboard
+            </button>
+            <button className="dash-btn" onClick={() => router.push("/sustainability")} type="button">
+              Sustainability
+            </button>
+          </div>
+        </header>
+
+        <div className="order-controls">
+          <input
+            className="order-input"
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+          />
+
+          <button className="primary" onClick={generatePlan} type="button" disabled={!uid || !date}>
+            Generate Plan
+          </button>
         </div>
-      )}
 
-      {/* Forecast table */}
-      {forecastDisplay.length > 0 && (
-        <section style={{ marginTop: 22 }}>
-          <h2>Forecasted Menu Demand</h2>
-          <table style={{ width: "100%", marginTop: 10 }}>
-            <thead>
-              <tr>
-                <th align="left">Menu Item</th>
-                <th align="left">Menu ID</th>
-                <th align="left">Predicted Units</th>
-              </tr>
-            </thead>
-            <tbody>
-              {forecastDisplay.map((r) => (
-                <tr key={r.menuItemId}>
-                  <td><b>{r.menuName}</b></td>
-                  <td>{r.menuItemId}</td>
-                  <td>{r.predictedUnits}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </section>
-      )}
+        {status ? (
+          <div className="dash-loading">
+            <div className="spinner" aria-hidden="true" />
+            <span>{status}</span>
+          </div>
+        ) : null}
 
-      {/* Ingredient table */}
-      {ingredientRows.length > 0 && (
-        <section style={{ marginTop: 22 }}>
-          <h2>Ingredient Needs and Orders</h2>
-          <table style={{ width: "100%", marginTop: 10 }}>
-            <thead>
-              <tr>
-                <th align="left">Ingredient</th>
-                <th align="left">Needed</th>
-                <th align="left">In Stock</th>
-                <th align="left">To Order</th>
-                <th align="left">Supplier</th>
-              </tr>
-            </thead>
-            <tbody>
-              {ingredientRows.map((r) => (
-                <tr key={r.itemName}>
-                  <td>{r.itemName}</td>
-                  <td>{r.needed} {r.unit}</td>
-                  <td>{r.inStock} {r.unit}</td>
-                  <td><b>{r.toOrder}</b> {r.unit}</td>
-                  <td>{r.supplier}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </section>
-      )}
+        {(forecastDisplay.length > 0 || ingredientRows.length > 0) && (
+          <div className="kpi-grid">
+            <Stat label="Menu items forecasted" value={stats.menuItems} />
+            <Stat label="Total dishes predicted" value={stats.totalPredicted} />
+            <Stat label="Ingredients tracked" value={stats.ingredients} />
+            <Stat label="Ingredients needing order" value={stats.shortageLines} />
+            <Stat label="Suppliers involved" value={stats.suppliersCount} />
+          </div>
+        )}
 
-      {/* Orders grouped by supplier */}
-      {ordersBySupplier.length > 0 && (
-        <section style={{ marginTop: 22 }}>
-          <h2>Order List by Supplier</h2>
-          {ordersBySupplier.map(([supplier, items]) => (
-            <div key={supplier} style={{ marginTop: 12, padding: 12, border: "1px solid #ddd", borderRadius: 10 }}>
-              <h3 style={{ margin: 0 }}>{supplier}</h3>
-              <ul style={{ marginTop: 8 }}>
-                {items.map((it) => (
-                  <li key={it.itemName}>
-                    {it.itemName}: <b>{it.toOrder}</b> {it.unit} (need {it.needed}, have {it.inStock})
-                  </li>
+        {/* ✅ Supplier section first */}
+        {ordersBySupplier.length > 0 && (
+          <section className="dash-section">
+            <div className="panel-card">
+              <div className="panel-header">
+                <h2 className="section-title">Order List by Supplier</h2>
+                <p className="section-note">Only items with positive order quantities appear here.</p>
+              </div>
+
+              <div className="order-supplier-wrap">
+                {ordersBySupplier.map(([supplier, items]) => (
+                  <div key={supplier} className="order-supplier-card">
+                    <h3 className="order-supplier-title">{supplier}</h3>
+                    <ul className="order-list">
+                      {items.map((it) => (
+                        <li key={it.itemName}>
+                          {it.itemName}: <b>{it.toOrder}</b> {it.unit} (need {it.needed}, have {it.inStock})
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 ))}
-              </ul>
+              </div>
             </div>
-          ))}
-        </section>
-      )}
-    </main>
-  );
-}
+          </section>
+        )}
 
-function Stat({ label, value }: { label: string; value: any }) {
-  return (
-    <div style={{ border: "1px solid #ddd", borderRadius: 12, padding: 12 }}>
-      <div style={{ fontSize: 12, opacity: 0.7 }}>{label}</div>
-      <div style={{ fontSize: 22, fontWeight: 700, marginTop: 6 }}>{value}</div>
-    </div>
+        {/* ✅ Ingredients table second (Dashboard-style pagination) */}
+        {ingredientRows.length > 0 && (
+          <section className="dash-section">
+            <div className="table-card">
+              <div className="table-card-header">
+                <h2 className="section-title">Ingredient Needs and Orders</h2>
+                <p className="section-note">Sorted by highest shortages first.</p>
+              </div>
+
+              <div className="table-wrap" role="region" aria-label="Ingredients table" tabIndex={0}>
+                <table className="dash-table">
+                  <thead>
+                    <tr>
+                      <th>Ingredient</th>
+                      <th>Needed</th>
+                      <th>In Stock</th>
+                      <th>To Order</th>
+                      <th>Supplier</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {pagedIngredients.map((r) => (
+                      <tr key={r.itemName}>
+                        <td className="cell-item">{r.itemName}</td>
+                        <td>
+                          {r.needed} {r.unit}
+                        </td>
+                        <td>
+                          {r.inStock} {r.unit}
+                        </td>
+                        <td>
+                          <b>{r.toOrder}</b> {r.unit}
+                        </td>
+                        <td>{r.supplier}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* ✅ Pagination controls — copied from Dashboard (same look/behavior) */}
+              {!!ingredientRows.length && (
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    padding: "12px 18px 16px",
+                    gap: 12,
+                    flexWrap: "wrap",
+                    borderTop: "1px solid rgba(255,255,255,0.08)",
+                  }}
+                >
+                  <div style={{ color: "rgba(255,255,255,0.75)", fontSize: 14 }}>
+                    Showing <b>{startIndex + 1}</b>–<b>{endIndex}</b> of <b>{totalItems}</b>
+                  </div>
+
+                  <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                    <label style={{ color: "rgba(255,255,255,0.75)", fontSize: 14 }}>
+                      Rows:
+                      <select
+                        value={pageSize}
+                        onChange={(e) => {
+                          setPageSize(Number(e.target.value));
+                          setPage(1);
+                        }}
+                        style={{
+                          marginLeft: 8,
+                          padding: "8px 10px",
+                          borderRadius: 10,
+                          border: "1px solid rgba(255,255,255,0.12)",
+                          background: "rgba(255,255,255,0.04)",
+                          color: "white",
+                          outline: "none",
+                        }}
+                      >
+                        {[10, 25, 50, 100].map((n) => (
+                          <option key={n} value={n}>
+                            {n}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+
+                    <button
+                      type="button"
+                      className="dash-btn"
+                      onClick={() => setPage(1)}
+                      disabled={!canPrev}
+                      style={{
+                        opacity: canPrev ? 1 : 0.6,
+                        cursor: canPrev ? "pointer" : "not-allowed",
+                      }}
+                    >
+                      ⏮ First
+                    </button>
+
+                    <button
+                      type="button"
+                      className="dash-btn"
+                      onClick={() => setPage((p) => Math.max(1, p - 1))}
+                      disabled={!canPrev}
+                      style={{
+                        opacity: canPrev ? 1 : 0.6,
+                        cursor: canPrev ? "pointer" : "not-allowed",
+                      }}
+                    >
+                      ◀ Prev
+                    </button>
+
+                    <div style={{ color: "rgba(255,255,255,0.8)", fontSize: 14 }}>
+                      Page <b>{safePage}</b> / <b>{totalPages}</b>
+                    </div>
+
+                    <button
+                      type="button"
+                      className="dash-btn"
+                      onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                      disabled={!canNext}
+                      style={{
+                        opacity: canNext ? 1 : 0.6,
+                        cursor: canNext ? "pointer" : "not-allowed",
+                      }}
+                    >
+                      Next ▶
+                    </button>
+
+                    <button
+                      type="button"
+                      className="dash-btn"
+                      onClick={() => setPage(totalPages)}
+                      disabled={!canNext}
+                      style={{
+                        opacity: canNext ? 1 : 0.6,
+                        cursor: canNext ? "pointer" : "not-allowed",
+                      }}
+                    >
+                      Last ⏭
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+
+        {!ingredientRows.length && !status}
+      </div>
+    </main>
   );
 }

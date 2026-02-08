@@ -7,15 +7,12 @@ import { useRouter } from "next/navigation";
 import { collection, getDocs, orderBy, query } from "firebase/firestore";
 import { enrichInventoryWithWaste } from "../../../lib/waste"; // adjust if needed
 import DonationsMap from "./DonationsMap";
+import "./sustainability.css";
+import FloatingLines from "../components/background";
 
-function Stat({ label, value }: { label: string; value: any }) {
-  return (
-    <div style={{ border: "1px solid #ddd", borderRadius: 12, padding: 12 }}>
-      <div style={{ fontSize: 12, opacity: 0.7 }}>{label}</div>
-      <div style={{ fontSize: 22, fontWeight: 700, marginTop: 6 }}>{value}</div>
-    </div>
-  );
-}
+// OPTIONAL: If your Dashboard uses a FloatingLines component,
+// import and render it inside sus-bg like your dash-bg.
+// import FloatingLines from "../dashboard/FloatingLines";
 
 type Place = {
   id: string;
@@ -26,7 +23,6 @@ type Place = {
   coordinates?: { latitude: number; longitude: number };
   categories?: string[];
 };
-
 
 const DONATION_SITES: Place[] = [
   {
@@ -83,7 +79,7 @@ const DONATION_SITES: Place[] = [
     coordinates: { latitude: 33.7915, longitude: -82.9032 },
     categories: ["Food pantry", "Hours: Tue/Thu 12pm–2pm"],
   },
-   {
+  {
     id: "don-7",
     name: "Greene County Food Pantry",
     location: { display_address: ["519 Morningside Apt., Greensboro, GA 30642, USA"] },
@@ -92,7 +88,6 @@ const DONATION_SITES: Place[] = [
     coordinates: { latitude: 33.590599, longitude: -83.174724 },
     categories: ["Food pantry", "Hours: Tue/Thu 10am–2:30pm"],
   },
-
 ];
 
 export default function SustainabilityPage() {
@@ -100,34 +95,27 @@ export default function SustainabilityPage() {
 
   const [rows, setRows] = useState<any[]>([]);
   const [stats, setStats] = useState<any | null>(null);
-  const [status, setStatus] = useState("");
 
-  // map center: use browser location if allowed, else fallback to Athens
+  // Map center: browser location if allowed, else Athens
   const [center, setCenter] = useState<{ lat: number; lng: number }>({
     lat: 33.9519,
     lng: -83.3576,
   });
 
   useEffect(() => {
-    // try to get location for nicer UX (optional)
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          setCenter({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-        },
-        () => {
-          // ignore errors; keep fallback
-        },
-        { enableHighAccuracy: true, timeout: 8000 }
-      );
-    }
+    if (!navigator.geolocation) return;
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => setCenter({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => {},
+      { enableHighAccuracy: true, timeout: 8000 }
+    );
   }, []);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (u) => {
       if (!u) return router.push("/login");
 
-      setStatus("Loading sustainability insights...");
 
       const invSnap = await getDocs(
         query(collection(db, "users", u.uid, "inventory"), orderBy("itemName"))
@@ -148,101 +136,151 @@ export default function SustainabilityPage() {
         wasteValueUSD: stats.wasteValueUSD,
       });
 
-      setStatus("✅ Loaded");
+      
     });
 
     return () => unsub();
   }, [router]);
 
   return (
-    <main style={{ padding: 24, maxWidth: 1100 }}>
-      <h1>Sustainability</h1>
-      <p>Items at risk of waste (excess inventory relative to expected consumption before expiration).</p>
+    <div className="sus-page">
+      <div className="sus-bg">
+    <FloatingLines />
+  </div>
 
-      <p style={{ marginTop: 10 }}>{status}</p>
+      <main className="sus-content">
+        <header className="sus-header">
+          <div>
+            <h1 className="sus-title">Sustainability</h1>
+            <p className="sus-subtitle">
+              Items at risk of waste (excess inventory relative to expected consumption before expiration).
+            </p>
+          </div>
+        </header>
 
-      {stats && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginTop: 16 }}>
-          <Stat label="Total items" value={stats.totalItems} />
-          <Stat label="At-risk items" value={stats.atRiskCount} />
-          <Stat label="Expiring ≤ 3 days" value={stats.expiringSoonCount} />
-          <Stat label="Est. waste $" value={`$${stats.wasteValueUSD}`} />
-        </div>
-      )}
 
-      <section style={{ marginTop: 22 }}>
-        <h2>At-risk items</h2>
+        {stats && (
+          <div className="sus-kpi-grid">
+            <div className="sus-kpi-card">
+              <div className="sus-kpi-label">Total items</div>
+              <div className="sus-kpi-value">{stats.totalItems}</div>
+            </div>
 
-        {rows.length === 0 ? (
-          <p>No items currently at risk 🎉</p>
-        ) : (
-          <table style={{ width: "100%", marginTop: 12 }}>
-            <thead>
-              <tr>
-                <th align="left">Item</th>
-                <th align="left">Days to Expire</th>
-                <th align="left">Stock</th>
-                <th align="left">Excess at Risk</th>
-                <th align="left">Est. Waste</th>
-                <th align="left">Est. Waste $</th>
-                <th align="left">Storage</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r: any) => (
-                <tr key={r.id}>
-                  <td><b>{r.itemName}</b></td>
-                  <td>{r.daysToExpire ?? "—"}</td>
-                  <td>{r.currentStock} {r.unit}</td>
-                  <td>{r.excessAtRisk} {r.unit}</td>
-                  <td><b>{r.estimatedWaste}</b> {r.unit}</td>
-                  <td><b>${r.wasteValueUSD}</b></td>
-                  <td>{r.storage ?? "—"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+            <div className="sus-kpi-card">
+              <div className="sus-kpi-label">At-risk items</div>
+              <div className="sus-kpi-value">{stats.atRiskCount}</div>
+            </div>
+
+            <div className="sus-kpi-card">
+              <div className="sus-kpi-label">Expiring ≤ 3 days</div>
+              <div className="sus-kpi-value">{stats.expiringSoonCount}</div>
+            </div>
+
+            <div className="sus-kpi-card">
+              <div className="sus-kpi-label">Est. waste $</div>
+              <div className="sus-kpi-value">${stats.wasteValueUSD}</div>
+            </div>
+          </div>
         )}
-      </section>
 
-      {/* ✅ Donation section (hardcoded) */}
-      <section style={{ marginTop: 28 }}>
-        <h2>Donate instead of waste</h2>
-        <p style={{ maxWidth: 900 }}>
-          If you have items at risk, consider donating to nearby food banks and pantries.
-          Here are verified local donation locations you can use.
-        </p>
+        {/* At-risk items table */}
+        <section className="sus-section">
+          <div className="sus-card">
+            <div className="sus-card-header">
+              <h2 className="sus-section-title">At-risk items</h2>
+              <p className="sus-section-note">
+                Items most likely to be wasted based on consumption rate and expiration.
+              </p>
+            </div>
 
-        <div style={{ marginTop: 14 }}>
-          <DonationsMap center={center} places={DONATION_SITES} />
-        </div>
+            {rows.length === 0 ? (
+              <div className="sus-empty-state">No items currently at risk 🎉</div>
+            ) : (
+              <div className="sus-table-wrap">
+                <table className="sus-table">
+                  <thead>
+                    <tr>
+                      <th>Item</th>
+                      <th>Days to Expire</th>
+                      <th>Stock</th>
+                      <th>Excess at Risk</th>
+                      <th>Est. Waste</th>
+                      <th>Est. Waste $</th>
+                      <th>Storage</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((r: any) => (
+                      <tr key={r.id}>
+                        <td className="sus-cell-item">{r.itemName}</td>
+                        <td>{r.daysToExpire ?? "—"}</td>
+                        <td>
+                          {r.currentStock} {r.unit}
+                        </td>
+                        <td>
+                          {r.excessAtRisk} {r.unit}
+                        </td>
+                        <td>
+                          <b>{r.estimatedWaste}</b> {r.unit}
+                        </td>
+                        <td>
+                          <b>${r.wasteValueUSD}</b>
+                        </td>
+                        <td>{r.storage ?? "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </section>
 
-        <div style={{ marginTop: 14 }}>
-          <h3>Locations</h3>
-          <ul>
-            {DONATION_SITES.map((p) => (
-              <li key={p.id} style={{ marginBottom: 10 }}>
-                <b>{p.name}</b>
-                <div style={{ fontSize: 13, opacity: 0.85 }}>
-                  {p.location?.display_address?.[0] ?? ""}
+        {/* Donation map + locations */}
+        <section className="sus-section">
+          <div className="sus-card">
+            <div className="sus-card-header">
+              <h2 className="sus-section-title">Donate instead of waste</h2>
+              <p className="sus-section-note">
+                If you have items at risk, consider donating. These are verified local donation locations.
+              </p>
+            </div>
+
+            <div style={{ padding: "14px 18px 18px" }}>
+              <DonationsMap center={center} places={DONATION_SITES} />
+            </div>
+          </div>
+
+          <div className="sus-card">
+            <div className="sus-card-header">
+              <h3 className="sus-section-title">Locations</h3>
+              <p className="sus-section-note">Contact info and links.</p>
+            </div>
+
+            <div className="sus-locations">
+              {DONATION_SITES.map((p) => (
+                <div key={p.id} className="sus-location-item">
+                  <div className="sus-location-name">{p.name}</div>
+                  <div className="sus-location-meta">{p.location?.display_address?.[0] ?? ""}</div>
+                  <div className="sus-location-meta">{p.categories?.join(" · ")}</div>
+                  <div className="sus-location-meta">
+                    {p.phone ? `📞 ${p.phone}` : ""}
+                    {p.url ? (
+                      <>
+                        {" "}
+                        ·{" "}
+                        <a className="sus-link" href={p.url} target="_blank" rel="noreferrer">
+                          Website
+                        </a>
+                      </>
+                    ) : null}
+                  </div>
                 </div>
-                <div style={{ fontSize: 13, opacity: 0.85 }}>
-                  {p.categories?.join(" · ")}
-                </div>
-                <div style={{ fontSize: 13, opacity: 0.85 }}>
-                  {p.phone ? `📞 ${p.phone}` : ""}
-                  {p.url ? (
-                    <>
-                      {" "}
-                      · <a href={p.url} target="_blank" rel="noreferrer">Website</a>
-                    </>
-                  ) : null}
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </section>
-    </main>
+              ))}
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
   );
 }
