@@ -108,7 +108,7 @@ export default function SignUpPage() {
             />
           </label>
 
-          <StarBorder as="button" className="primary-btn" color="white" speed="5s" type="submit" disabled={loading}>
+          <StarBorder as="button" className="primary-btn" color="magenta" speed="5s" thickness={3} type="submit" disabled={loading}>
             {loading ? "Creating..." : "Create account"}
           </StarBorder>
         </form>
