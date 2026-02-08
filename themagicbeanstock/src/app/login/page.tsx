@@ -25,7 +25,7 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await signInWithEmailAndPassword(auth, email.trim(), password);
-      router.push("/upload");
+      router.push("/");
     } catch (err: any) {
       setError(err?.message || "Sign-in failed.");
     } finally {
@@ -39,7 +39,7 @@ export default function LoginPage() {
     try {
       const provider = new GoogleAuthProvider();
       await signInWithPopup(auth, provider);
-      router.push("/upload");
+      router.push("/");
     } catch (err: any) {
       setError(err?.message || "Google sign-in failed.");
     } finally {

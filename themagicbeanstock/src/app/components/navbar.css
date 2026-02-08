@@ -1,39 +1,232 @@
-.nav {
-  background-color: #dad1ed;
+/* app/components/navbar.css */
+
+/* Full-width top bar (not floating) */
+.nav-wrap {
   position: sticky;
   top: 0;
-  z-index: 50;
-  width: 100%; 
-  margin: 0;
-  padding: 14px 50px 14px 50px;
-  display: grid;
-  grid-template-columns: auto 1fr auto;
+  z-index: 99;
+  width: 100%;
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Make it full width and at top (not floating) */
+.card-nav {
+  width: 100%;
+  display: block;
+  height: 60px;
+  padding: 0;
+  border: 0;
+  position: relative;
+  overflow: hidden;
+  will-change: height;
+}
+
+/* Keep the original absolute top bar layout */
+.card-nav-top {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 60px;
+  display: flex;
   align-items: center;
-  color: brown
+  justify-content: space-between;
+  padding: 0.5rem 0.45rem 0.55rem 1.1rem;
+  z-index: 2;
 }
 
-/* LEFT */
-.nav-left {
+/* ✅ ONLY CHANGE NEEDED: force hamburger to sit on the left */
+.hamburger-menu {
+  height: 100%;
   display: flex;
-  gap: 30px;
-  justify-self: start;
-}
-
-/* CENTER */
-.nav-center {
-  display: flex;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
-  margin-right: 130px;
+  cursor: pointer;
+  gap: 6px;
 }
 
-/* RIGHT */
+.hamburger-menu:hover .hamburger-line {
+  opacity: 0.75;
+}
+
+.hamburger-line {
+  width: 30px;
+  height: 2px;
+  background-color: currentColor;
+  transition: transform 0.25s ease, opacity 0.2s ease, margin 0.3s ease;
+  transform-origin: 50% 50%;
+}
+
+.hamburger-menu.open .hamburger-line:first-child {
+  transform: translateY(4px) rotate(45deg);
+}
+
+.hamburger-menu.open .hamburger-line:last-child {
+  transform: translateY(-4px) rotate(-45deg);
+}
+
+/* Center logo stays centered exactly as your original CSS did */
+.logo-container {
+  display: flex;
+  align-items: center;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.logo {
+  height: 28px;
+}
+
+.brand-text-link {
+  color: white;
+  text-decoration: none;
+  font-weight: 800;
+}
+
+/* Right side container for auth buttons */
 .nav-right {
   display: flex;
-  gap: 30px;
-  justify-self: end;
+  align-items: center;
+  gap: 10px;
 }
 
-.nav a:hover {
-  color: #dd9393
+/* Reuse original CTA styles */
+.card-nav-cta-button {
+  background-color: #111;
+  color: white;
+  border: none;
+  border-radius: calc(0.75rem - 0.35rem);
+  padding: 0 1rem;
+  height: 100%;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
 
+.card-nav-cta-button:hover {
+  background-color: #333;
+}
+
+.card-nav-cta-button.ghost {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+/* Dropdown cards area (same structure as original) */
+.card-nav-content {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 60px;
+  bottom: 0;
+  padding: 0.5rem;
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  visibility: hidden;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.card-nav.open .card-nav-content {
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.nav-card {
+  height: 100%;
+  flex: 1 1 0;
+  min-width: 0;
+  border-radius: calc(0.75rem - 0.2rem);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 12px 16px;
+  gap: 8px;
+  user-select: none;
+}
+
+.nav-card-label {
+  font-weight: 400;
+  font-size: 22px;
+  letter-spacing: -0.5px;
+}
+
+.nav-card-full-link {
+  margin-top: auto;
+  font-size: 16px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: opacity 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+
+  color: inherit;
+}
+
+.nav-card-full-link:hover {
+  opacity: 0.85;
+}
+
+.nav-card-link-icon {
+  opacity: 0.9;
+}
+
+/* Optional user pill */
+.user-pill {
+  max-width: 220px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 8px 10px;
+  border-radius: 999px;
+}
+
+@media (max-width: 768px) {
+  .card-nav-top {
+    padding: 0.5rem 1rem;
+    justify-content: space-between;
+  }
+
+  .card-nav-content {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding: 0.5rem;
+    bottom: 0;
+    justify-content: flex-start;
+  }
+
+  .nav-card {
+    height: auto;
+    min-height: 60px;
+    flex: 1 1 auto;
+    max-height: none;
+  }
+
+  .nav-card-label {
+    font-size: 18px;
+  }
+
+  .nav-card-full-link {
+    font-size: 15px;
+  }
 }
