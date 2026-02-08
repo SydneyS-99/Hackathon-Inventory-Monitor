@@ -1,5 +1,5 @@
 "use client";
-
+import StarBorder from "../components/StarBorder";
 import FloatingLines from "../components/background";
 import { auth } from "../../../lib/firebase";
 import {
@@ -51,8 +51,8 @@ export default function LoginPage() {
     <main className="auth-page">
       <FloatingLines />
       <div className="auth-card">
-        <h1 className="auth-title">The Magic Bean Stock</h1>
-        <p className="auth-subtitle">Sign in to manage your inventory.</p>
+        <img src="/magic-bean-stock-logo-final.png" alt="Logo" className="auth-logo" width="100%" />
+        <p className="auth-subtitle">Magic you can measure!<br></br>Sign in to manage your inventory.</p>
 
         <form className="auth-form" onSubmit={handleEmailLogin}>
           <label className="auth-label">
@@ -83,9 +83,9 @@ export default function LoginPage() {
             />
           </label>
 
-          <button className="primary-btn" type="submit" disabled={loading}>
+          <StarBorder as="button" className="primary-btn" color="white" speed="5s" type="submit" disabled={loading}>
             {loading ? "Signing in..." : "Sign in"}
-          </button>
+          </StarBorder>
         </form>
 
         <div className="divider">

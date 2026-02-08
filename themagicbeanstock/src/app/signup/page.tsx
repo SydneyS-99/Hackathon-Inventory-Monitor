@@ -9,6 +9,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 import "./signup.css";
+import StarBorder from "../components/StarBorder";
 
 export default function SignUpPage() {
   const router = useRouter();
@@ -48,6 +49,7 @@ export default function SignUpPage() {
     <main className="auth-page">
       <FloatingLines />
       <div className="auth-card">
+        <img src="/sprout.png" alt="Logo" className="auth-logo" width="10%"/>
         <h1 className="auth-title">Create your account</h1>
         <p className="auth-subtitle">Join The Magic Bean Stock</p>
 
@@ -106,9 +108,9 @@ export default function SignUpPage() {
             />
           </label>
 
-          <button className="primary-btn" type="submit" disabled={loading}>
+          <StarBorder as="button" className="primary-btn" color="white" speed="5s" type="submit" disabled={loading}>
             {loading ? "Creating..." : "Create account"}
-          </button>
+          </StarBorder>
         </form>
 
         {error && <p className="error-text">{error}</p>}

@@ -1,1 +1,6 @@
 @import "../login/login.css";
+
+.auth-logo {
+  display: block;          /* makes margin auto work */
+  margin: 0 auto 0;     /* centers horizontally + spacing below */
+}
