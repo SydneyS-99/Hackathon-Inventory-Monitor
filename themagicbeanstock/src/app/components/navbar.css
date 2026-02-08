@@ -20,19 +20,20 @@
   position: relative;
   overflow: hidden;
   will-change: height;
+  
 }
 
-/* Keep the original absolute top bar layout */
+/* navbar.css */
 .card-nav-top {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
-  height: 60px;
+  min-height: 60px; /* Changed from height to min-height */
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.5rem 0.45rem 0.55rem 1.1rem;
+  padding: 0 1.1rem; /* Adjust this to your preferred horizontal padding */
   z-index: 2;
 }
 
@@ -51,12 +52,15 @@
   opacity: 0.75;
 }
 
+
 .hamburger-line {
   width: 30px;
   height: 2px;
   background-color: currentColor;
   transition: transform 0.25s ease, opacity 0.2s ease, margin 0.3s ease;
   transform-origin: 50% 50%;
+  will-change: transform;
+  backface-visibility: hidden;
 }
 
 .hamburger-menu.open .hamburger-line:first-child {
@@ -180,8 +184,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: space-between;
-  gap: 6px;
-
+  gap: 60px;
   padding: 10px 12px;
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.06);
@@ -208,6 +211,8 @@
   padding: 8px 10px;
   border-radius: 999px;
 }
+
+
 
 @media (max-width: 768px) {
   .card-nav-top {

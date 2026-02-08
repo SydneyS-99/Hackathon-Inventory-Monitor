@@ -49,7 +49,7 @@ export default function Navbar({
   brandText = "The Magic Bean Stock",
   items,
   className = "",
-  ease = "power3.out",
+  ease = "power3.inOut",
   baseColor = "rgba(10, 8, 18, 0.75)",
   menuColor = "#fff",
   buttonBgColor,
@@ -110,7 +110,6 @@ export default function Navbar({
 
   const navItems = (items && items.length ? items : defaultItems).slice(0, 4);
 
-  // ✅ IMPORTANT: compute which cards are actually rendered (depends on user)
   const visibleNavItems = useMemo(() => {
     return navItems.filter((item) => {
       const href = item.links?.[0]?.href ?? "/";
@@ -121,70 +120,67 @@ export default function Navbar({
 
   const visibleCount = visibleNavItems.length;
 
-  // ✅ Measure actual content height (prevents clipping on first open)
   const calculateHeight = () => {
-    const navEl = navRef.current;
-    if (!navEl) return 260;
-
-    const contentEl = navEl.querySelector(".card-nav-content") as HTMLElement | null;
-    if (!contentEl) return 260;
-
-    const prevVisibility = contentEl.style.visibility;
-    const prevPointer = contentEl.style.pointerEvents;
-
-    contentEl.style.visibility = "visible";
-    contentEl.style.pointerEvents = "auto";
-
-    contentEl.offsetHeight; // force layout
-
-    const topBar = 60;
-    const padding = 16;
-    const contentHeight = contentEl.scrollHeight;
-
-    contentEl.style.visibility = prevVisibility;
-    contentEl.style.pointerEvents = prevPointer;
-
-    return topBar + contentHeight + padding;
-  };
-
-  const createTimeline = () => {
   const navEl = navRef.current;
-  if (!navEl) return null;
+  if (!navEl) return 450; // Increased fallback for taller cards
 
-  const cards = Array.from(navEl.querySelectorAll<HTMLElement>(".nav-card"));
+  const contentEl = navEl.querySelector(".card-nav-content") as HTMLElement | null;
+  if (!contentEl) return 60;
 
-  gsap.set(navEl, { height: 60, overflow: "hidden" });
-  gsap.set(cards, { y: 60, opacity: 0 });
+  const prevVisibility = contentEl.style.visibility;
+  const prevDisplay = contentEl.style.display;
 
-  const tl = gsap.timeline({ paused: true });
+  contentEl.style.visibility = "hidden";
+  contentEl.style.display = "flex";
+  
+  const topBar = 60;
+  // Increase this padding if the cards feel cut off at the bottom
+  const bottomBuffer = 40; 
+  const contentHeight = contentEl.scrollHeight;
 
-  tl.to(navEl, {
-    height: calculateHeight(),     // ✅ FIXED
-    duration: 0.75,               // slower
-    ease: "power2.out",
-  });
+  contentEl.style.visibility = prevVisibility;
+  contentEl.style.display = prevDisplay;
 
-  tl.to(
-    cards,
-    {
-      y: 0,
-      opacity: 1,
-      duration: 0.65,
-      ease: "power2.out",
-      stagger: 0.12,
-    },
-    "-=0.35"
-  );
-
-  return tl;
+  return topBar + contentHeight + bottomBuffer;
 };
 
-  // ✅ Recreate timeline whenever the number of visible cards changes
+  const createTimeline = () => {
+    const navEl = navRef.current;
+    if (!navEl) return null;
+
+    const cards = Array.from(navEl.querySelectorAll<HTMLElement>(".nav-card"));
+
+    // Set initial states explicitly
+    gsap.set(navEl, { height: 60, overflow: "hidden" });
+    gsap.set(cards, { y: 20, opacity: 0 });
+
+    const tl = gsap.timeline({ paused: true });
+
+    tl.to(navEl, {
+      height: calculateHeight(),
+      duration: 0.6,
+      ease: ease,
+    });
+
+    tl.to(
+      cards,
+      {
+        y: 0,
+        opacity: 1,
+        duration: 0.4,
+        ease: "power2.out",
+        stagger: 0.08,
+      },
+      "-=0.3"
+    );
+
+    return tl;
+  };
+
   useLayoutEffect(() => {
     const tl = createTimeline();
     tlRef.current = tl;
 
-    // If menu is currently open, jump to end so it doesn't snap shut
     if (isExpanded && tlRef.current) {
       tlRef.current.progress(1);
     }
@@ -193,32 +189,20 @@ export default function Navbar({
       tl?.kill();
       tlRef.current = null;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ease, visibleCount]);
 
-  // ✅ Rebuild on resize, and also after fonts load (fixes “first open” quirks)
   useLayoutEffect(() => {
     const rebuild = () => {
       if (!tlRef.current) return;
-
       tlRef.current.kill();
       const newTl = createTimeline();
       if (!newTl) return;
-
       if (isExpanded) newTl.progress(1);
       tlRef.current = newTl;
     };
 
     window.addEventListener("resize", rebuild);
-
-    // fonts can change measurements after first paint
-    const fontsReady = (document as any).fonts?.ready;
-    if (fontsReady && typeof fontsReady.then === "function") {
-      fontsReady.then(rebuild).catch(() => {});
-    }
-
     return () => window.removeEventListener("resize", rebuild);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isExpanded, visibleCount]);
 
   const toggleMenu = () => {
@@ -228,11 +212,14 @@ export default function Navbar({
     if (!isExpanded) {
       setIsHamburgerOpen(true);
       setIsExpanded(true);
-      tl.play(0);
+      // Invalidate ensures height is re-calculated for expansion
+      tl.invalidate().restart(); 
     } else {
       setIsHamburgerOpen(false);
-      tl.eventCallback("onReverseComplete", () => setIsExpanded(false));
       tl.reverse();
+      tl.eventCallback("onReverseComplete", () => {
+        setIsExpanded(false);
+      });
     }
   };
 
@@ -266,7 +253,6 @@ export default function Navbar({
 
           <div className="logo-container">
             {logo ? (
-              // eslint-disable-next-line @next/next/no-img-element
               <img src={logo} alt={logoAlt} className="logo" />
             ) : (
               <Link href="/" className="brand-text-link" aria-label="Go to home">
@@ -326,7 +312,6 @@ export default function Navbar({
                 style={{ backgroundColor: item.bgColor, color: item.textColor }}
               >
                 <div className="nav-card-label">{item.label}</div>
-
                 <Link
                   href={href}
                   aria-label={ariaLabel}
