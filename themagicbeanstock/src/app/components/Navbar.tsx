@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useLayoutEffect, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { gsap } from "gsap";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -63,15 +63,12 @@ export default function Navbar({
   const router = useRouter();
 
   const navRef = useRef<HTMLElement | null>(null);
-  const cardsRef = useRef<HTMLDivElement[]>([]);
   const tlRef = useRef<gsap.core.Timeline | null>(null);
 
-  // ✅ compute, but DO NOT return yet
   const hideOn = ["/login", "/signup", "/forgot-password"];
   const shouldHide = hideOn.includes(pathname);
 
-  // Auth state
-  React.useEffect(() => {
+  useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => setUser(u));
     return () => unsub();
   }, []);
@@ -113,100 +110,116 @@ export default function Navbar({
 
   const navItems = (items && items.length ? items : defaultItems).slice(0, 4);
 
+  // ✅ IMPORTANT: compute which cards are actually rendered (depends on user)
+  const visibleNavItems = useMemo(() => {
+    return navItems.filter((item) => {
+      const href = item.links?.[0]?.href ?? "/";
+      if (!user && !isPublicRoute(href)) return false;
+      return true;
+    });
+  }, [navItems, user]);
+
+  const visibleCount = visibleNavItems.length;
+
+  // ✅ Measure actual content height (prevents clipping on first open)
   const calculateHeight = () => {
     const navEl = navRef.current;
     if (!navEl) return 260;
 
-    const isMobile = window.matchMedia("(max-width: 768px)").matches;
-    if (isMobile) {
-      const contentEl = navEl.querySelector(".card-nav-content") as HTMLElement | null;
-      if (contentEl) {
-        const wasVisible = contentEl.style.visibility;
-        const wasPointerEvents = contentEl.style.pointerEvents;
-        const wasPosition = contentEl.style.position;
-        const wasHeight = contentEl.style.height;
+    const contentEl = navEl.querySelector(".card-nav-content") as HTMLElement | null;
+    if (!contentEl) return 260;
 
-        contentEl.style.visibility = "visible";
-        contentEl.style.pointerEvents = "auto";
-        contentEl.style.position = "static";
-        contentEl.style.height = "auto";
+    const prevVisibility = contentEl.style.visibility;
+    const prevPointer = contentEl.style.pointerEvents;
 
-        contentEl.offsetHeight;
+    contentEl.style.visibility = "visible";
+    contentEl.style.pointerEvents = "auto";
 
-        const topBar = 60;
-        const padding = 16;
-        const contentHeight = contentEl.scrollHeight;
+    contentEl.offsetHeight; // force layout
 
-        contentEl.style.visibility = wasVisible;
-        contentEl.style.pointerEvents = wasPointerEvents;
-        contentEl.style.position = wasPosition;
-        contentEl.style.height = wasHeight;
+    const topBar = 60;
+    const padding = 16;
+    const contentHeight = contentEl.scrollHeight;
 
-        return topBar + contentHeight + padding;
-      }
-    }
+    contentEl.style.visibility = prevVisibility;
+    contentEl.style.pointerEvents = prevPointer;
 
-    return 260;
+    return topBar + contentHeight + padding;
   };
 
   const createTimeline = () => {
-    const navEl = navRef.current;
-    if (!navEl) return null;
+  const navEl = navRef.current;
+  if (!navEl) return null;
 
-    gsap.set(navEl, { height: 60, overflow: "hidden" });
-    gsap.set(cardsRef.current, { y: 50, opacity: 0 });
+  const cards = Array.from(navEl.querySelectorAll<HTMLElement>(".nav-card"));
 
-    const tl = gsap.timeline({ paused: true });
+  gsap.set(navEl, { height: 60, overflow: "hidden" });
+  gsap.set(cards, { y: 60, opacity: 0 });
 
-    tl.to(navEl, {
-      height: calculateHeight,
-      duration: 0.4,
-      ease,
-    });
+  const tl = gsap.timeline({ paused: true });
 
-    tl.to(cardsRef.current, { y: 0, opacity: 1, duration: 0.4, ease, stagger: 0.08 }, "-=0.1");
+  tl.to(navEl, {
+    height: calculateHeight(),     // ✅ FIXED
+    duration: 0.75,               // slower
+    ease: "power2.out",
+  });
 
-    return tl;
-  };
+  tl.to(
+    cards,
+    {
+      y: 0,
+      opacity: 1,
+      duration: 0.65,
+      ease: "power2.out",
+      stagger: 0.12,
+    },
+    "-=0.35"
+  );
 
+  return tl;
+};
+
+  // ✅ Recreate timeline whenever the number of visible cards changes
   useLayoutEffect(() => {
     const tl = createTimeline();
     tlRef.current = tl;
+
+    // If menu is currently open, jump to end so it doesn't snap shut
+    if (isExpanded && tlRef.current) {
+      tlRef.current.progress(1);
+    }
 
     return () => {
       tl?.kill();
       tlRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ease, navItems.length]);
+  }, [ease, visibleCount]);
 
+  // ✅ Rebuild on resize, and also after fonts load (fixes “first open” quirks)
   useLayoutEffect(() => {
-    const handleResize = () => {
+    const rebuild = () => {
       if (!tlRef.current) return;
 
-      if (isExpanded) {
-        const newHeight = calculateHeight();
-        gsap.set(navRef.current, { height: newHeight });
+      tlRef.current.kill();
+      const newTl = createTimeline();
+      if (!newTl) return;
 
-        tlRef.current.kill();
-        const newTl = createTimeline();
-        if (newTl) {
-          newTl.progress(1);
-          tlRef.current = newTl;
-        }
-      } else {
-        tlRef.current.kill();
-        const newTl = createTimeline();
-        if (newTl) {
-          tlRef.current = newTl;
-        }
-      }
+      if (isExpanded) newTl.progress(1);
+      tlRef.current = newTl;
     };
 
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
+    window.addEventListener("resize", rebuild);
+
+    // fonts can change measurements after first paint
+    const fontsReady = (document as any).fonts?.ready;
+    if (fontsReady && typeof fontsReady.then === "function") {
+      fontsReady.then(rebuild).catch(() => {});
+    }
+
+    return () => window.removeEventListener("resize", rebuild);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isExpanded]);
+  }, [isExpanded, visibleCount]);
 
   const toggleMenu = () => {
     const tl = tlRef.current;
@@ -223,11 +236,6 @@ export default function Navbar({
     }
   };
 
-  const setCardRef = (i: number) => (el: HTMLDivElement | null) => {
-    if (el) cardsRef.current[i] = el;
-  };
-
-  // ✅ NOW it's safe to return null (after hooks)
   if (shouldHide) return null;
 
   return (
@@ -241,6 +249,12 @@ export default function Navbar({
           <div
             className={`hamburger-menu ${isHamburgerOpen ? "open" : ""}`}
             onClick={toggleMenu}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                toggleMenu();
+              }
+            }}
             role="button"
             aria-label={isExpanded ? "Close menu" : "Open menu"}
             tabIndex={0}
@@ -301,17 +315,14 @@ export default function Navbar({
         </div>
 
         <div className="card-nav-content" aria-hidden={!isExpanded}>
-          {navItems.map((item, idx) => {
+          {visibleNavItems.map((item, idx) => {
             const href = item.links?.[0]?.href ?? "/";
             const ariaLabel = item.links?.[0]?.ariaLabel ?? item.label;
-
-            if (!user && !isPublicRoute(href)) return null;
 
             return (
               <div
                 key={`${item.label}-${idx}`}
                 className="nav-card"
-                ref={setCardRef(idx)}
                 style={{ backgroundColor: item.bgColor, color: item.textColor }}
               >
                 <div className="nav-card-label">{item.label}</div>

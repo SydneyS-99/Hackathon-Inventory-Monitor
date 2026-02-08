@@ -1,310 +1,358 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { auth, db } from "../../../lib/firebase";
-import { onAuthStateChanged } from "firebase/auth";
-import { useRouter } from "next/navigation";
-import { collection, getDocs, query, orderBy } from "firebase/firestore";
-import { enrichInventoryWithWaste, round } from "../../../lib/waste"; // adjust if path differs
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { gsap } from "gsap";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { onAuthStateChanged, signOut, User } from "firebase/auth";
+import { auth } from "../../../lib/firebase";
+import "./navbar.css";
 
-type Tab = "inventory" | "calculator";
-
-type InventoryItem = {
-  id: string;
-  itemName: string;
-  supplier?: string;
-  category?: string;
-  unit?: string;
-  currentStock?: number;
-  reorderPoint?: number;
-  leadTimeDays?: number;
-  wastePctHistorical?: number;
-  pricePerUnitUSD?: number;
-  estimatedExpirationDate?: string;
-  avgDailyUsage?: number;
-  storage?: string;
-
-  // computed
-  daysToExpire?: number | null;
-  excessAtRisk?: number;
-  estimatedWaste?: number;
-  wasteValueUSD?: number;
-  atRisk?: boolean;
+type CardNavLink = {
+  label: string;
+  href: string;
+  ariaLabel: string;
 };
 
+export type CardNavItem = {
+  label: string;
+  bgColor: string;
+  textColor: string;
+  links: CardNavLink[];
+};
 
-export default function DashboarxsdPage() {
-  const router = useRouter();
-  const [tab, setTab] = useState<Tab>("inventory");
-  const [uid, setUid] = useState<string | null>(null);
-
-  // data
-  const [inventory, setInventory] = useState<InventoryItem[]>([]);
-  const [recipes, setRecipes] = useState<any[]>([]);
-  const [inventoryStats, setInventoryStats] = useState<any | null>(null);
-
-  // calculator state
-  const [recipeId, setRecipeId] = useState<string>("");
-  const [servings, setServings] = useState<number>(30);
-  const [calcResult, setCalcResult] = useState<any[] | null>(null);
-  const [status, setStatus] = useState<string>("");
-
-  useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        router.push("/login");
-        return;
-      }
-      setUid(user.uid);
-    });
-    return () => unsub();
-  }, [router]);
-
-  async function loadData(userId: string) {
-    setStatus("Loading data...");
-
-    // Inventory
-    const invSnap = await getDocs(
-      query(collection(db, "users", userId, "inventory"), orderBy("itemName"))
-    );
-    const invRows: InventoryItem[] = invSnap.docs.map((d) => ({
-  id: d.id,
-  ...(d.data() as Omit<InventoryItem, "id">),
-}));
-
-    const { enriched, stats } = enrichInventoryWithWaste(invRows, 7);
-
-    // non-waste KPIs
-    const supplierSet = new Set<string>();
-    const categorySet = new Set<string>();
-    for (const it of invRows) {
-      if (it.supplier) supplierSet.add(String(it.supplier));
-      if (it.category) categorySet.add(String(it.category));
-    }
-
-    const dashStats = {
-      totalItems: enriched.length,
-      suppliersCount: supplierSet.size,
-      categoriesCount: categorySet.size,
-      atRiskCount: stats.atRiskCount,
-      wasteValueUSD: stats.wasteValueUSD,
-    };
-
-    // sort: at-risk first, then closest expiry
-    enriched.sort((a, b) => {
-      if (Number(b.atRisk) !== Number(a.atRisk)) return Number(b.atRisk) - Number(a.atRisk);
-      const ad = a.daysToExpire ?? 9999;
-      const bd = b.daysToExpire ?? 9999;
-      return ad - bd;
-    });
-
-    setInventory(enriched);
-    setInventoryStats(dashStats);
-
-    // Recipes
-    const recipeSnap = await getDocs(
-      query(collection(db, "users", userId, "recipes"), orderBy("name"))
-    );
-    const recipeRows = recipeSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-    setRecipes(recipeRows);
-
-    if (recipeRows.length && !recipeId) setRecipeId(recipeRows[0].id);
-
-    setStatus("✅ Loaded");
-  }
-
-  useEffect(() => {
-    if (uid) loadData(uid);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [uid]);
-
-  const inventoryByName = useMemo(() => {
-    const m = new Map<string, any>();
-    for (const it of inventory) m.set(it.itemName, it);
-    return m;
-  }, [inventory]);
-
-  async function calculateOrder() {
-    setCalcResult(null);
-    setStatus("Calculating...");
-
-    const recipe = recipes.find((r) => r.id === recipeId);
-    if (!recipe) {
-      setStatus("❌ Recipe not found");
-      return;
-    }
-
-    const lines: any[] = [];
-    for (const ing of recipe.ingredients || []) {
-      const itemName = ing.itemName;
-      const unit = ing.unit;
-      const perServing = Number(ing.amountPerServing);
-
-      const needed = perServing * servings;
-      const inv = inventoryByName.get(itemName);
-      const inStock = inv ? Number(inv.currentStock) : 0;
-      const orderQty = Math.max(0, needed - inStock);
-
-      lines.push({
-        itemName,
-        unit,
-        needed: round(needed),
-        inStock: round(inStock),
-        orderQty: round(orderQty),
-        supplier: inv?.supplier ?? "Unknown",
-        wastePctHistorical: inv?.wastePctHistorical ?? null,
-        leadTimeDays: inv?.leadTimeDays ?? null,
-      });
-    }
-
-    setCalcResult(lines);
-    setStatus("✅ Done");
-  }
-
-  return (
-    <main style={{ padding: 24 }}>
-      <h1>Dashboard</h1>
-
-      <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
-        <button onClick={() => setTab("inventory")}>Inventory</button>
-        <button onClick={() => setTab("calculator")}>Order Calculator</button>
-        <button onClick={() => router.push("/forecasts")}>Forecasts</button>
-        <button onClick={() => router.push("/sustainability")}>Sustainability</button>
-      </div>
-
-      <p style={{ marginTop: 10 }}>{status}</p>
-
-      {tab === "inventory" && (
-        <div style={{ marginTop: 12 }}>
-          <h2>Inventory</h2>
-
-          {inventoryStats && (
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(5, 1fr)",
-                gap: 12,
-                marginTop: 12,
-              }}
-            >
-              <Stat label="Total items" value={inventoryStats.totalItems} />
-              <Stat label="Suppliers" value={inventoryStats.suppliersCount} />
-              <Stat label="Categories" value={inventoryStats.categoriesCount} />
-              <Stat label="At-risk items" value={inventoryStats.atRiskCount} />
-              <Stat label="Est. waste $" value={`$${inventoryStats.wasteValueUSD}`} />
-            </div>
-          )}
-
-          <table style={{ width: "100%", marginTop: 10 }}>
-            <thead>
-              <tr>
-                <th align="left">Item</th>
-                <th align="left">Status</th>
-                <th align="left">Stock</th>
-                <th align="left">Unit</th>
-                <th align="left">Days to Expire</th>
-                <th align="left">Excess at Risk</th>
-                <th align="left">Est. Waste</th>
-                <th align="left">Est. Waste $</th>
-                <th align="left">Reorder Point</th>
-                <th align="left">Lead Time</th>
-              </tr>
-            </thead>
-            <tbody>
-              {inventory.map((it) => (
-                <tr key={it.id}>
-                  <td>{it.itemName}</td>
-                  <td>{it.atRisk ? "⚠️ At Risk" : "✅ OK"}</td>
-                  <td>{it.currentStock}</td>
-                  <td>{it.unit}</td>
-                  <td>{it.daysToExpire ?? "—"}</td>
-                  <td>
-                    {it.excessAtRisk} {it.unit}
-                  </td>
-                  <td>
-                    <b>{it.estimatedWaste}</b> {it.unit}
-                  </td>
-                  <td>${it.wasteValueUSD}</td>
-                  <td>{it.reorderPoint}</td>
-                  <td>{it.leadTimeDays}d</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {tab === "calculator" && (
-        <div style={{ marginTop: 12 }}>
-          <h2>Recipe Order Calculator</h2>
-
-          <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 10 }}>
-            <label>
-              Recipe:&nbsp;
-              <select value={recipeId} onChange={(e) => setRecipeId(e.target.value)}>
-                {recipes.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label>
-              Servings:&nbsp;
-              <input
-                type="number"
-                value={servings}
-                min={1}
-                onChange={(e) => setServings(Number(e.target.value))}
-                style={{ width: 90 }}
-              />
-            </label>
-
-            <button onClick={calculateOrder}>Calculate</button>
-          </div>
-
-          {calcResult && (
-            <table style={{ width: "100%", marginTop: 12 }}>
-              <thead>
-                <tr>
-                  <th align="left">Ingredient</th>
-                  <th align="left">Needed</th>
-                  <th align="left">In Stock</th>
-                  <th align="left">Order</th>
-                  <th align="left">Supplier</th>
-                </tr>
-              </thead>
-              <tbody>
-                {calcResult.map((r, idx) => (
-                  <tr key={idx}>
-                    <td>{r.itemName}</td>
-                    <td>
-                      {r.needed} {r.unit}
-                    </td>
-                    <td>
-                      {r.inStock} {r.unit}
-                    </td>
-                    <td>
-                      <b>{r.orderQty}</b> {r.unit}
-                    </td>
-                    <td>{r.supplier}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      )}
-    </main>
-  );
+export interface CardNavProps {
+  logo?: string;
+  logoAlt?: string;
+  brandText?: string;
+  items?: CardNavItem[];
+  className?: string;
+  baseColor?: string;
+  menuColor?: string;
+  buttonBgColor?: string;
+  buttonTextColor?: string;
 }
 
-function Stat({ label, value }: { label: string; value: any }) {
+const ArrowIcon = ({ className = "" }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" className={className}>
+    <path
+      fill="currentColor"
+      d="M7 17a1 1 0 0 1 0-2h7.586L6.293 6.707a1 1 0 1 1 1.414-1.414L16 13.586V6a1 1 0 1 1 2 0v10a1 1 0 0 1-1 1H7z"
+    />
+  </svg>
+);
+
+export default function Navbar({
+  logo,
+  logoAlt = "Logo",
+  brandText = "The Magic Bean Stock",
+  items,
+  className = "",
+  baseColor = "rgba(10, 8, 18, 0.75)",
+  menuColor = "#fff",
+  buttonBgColor,
+  buttonTextColor,
+}: CardNavProps) {
+  const [isHamburgerOpen, setIsHamburgerOpen] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+
+  const pathname = usePathname();
+  const router = useRouter();
+
+  const navRef = useRef<HTMLElement | null>(null);
+  const tlRef = useRef<gsap.core.Timeline | null>(null);
+
+  const hideOn = ["/login", "/signup", "/forgot-password"];
+  const shouldHide = hideOn.includes(pathname);
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (u) => setUser(u));
+    return () => unsub();
+  }, []);
+
+  async function handleLogout() {
+    await signOut(auth);
+    router.push("/login");
+  }
+
+  const isPublicRoute = (href: string) =>
+    href === "/" || href === "/login" || href === "/signup" || href === "/forgot-password";
+
+  const defaultItems: CardNavItem[] = [
+    {
+      label: "Dashboard",
+      bgColor: "#151225",
+      textColor: "#ffffff",
+      links: [{ label: "Open", href: "/dashboard", ariaLabel: "Go to Dashboard" }],
+    },
+    {
+      label: "Sustainability",
+      bgColor: "#111827",
+      textColor: "#ffffff",
+      links: [{ label: "Open", href: "/sustainability", ariaLabel: "Go to Sustainability" }],
+    },
+    {
+      label: "Inventory",
+      bgColor: "#0f172a",
+      textColor: "#ffffff",
+      links: [{ label: "Open", href: "/upload", ariaLabel: "Go to Inventory" }],
+    },
+    {
+      label: "Home",
+      bgColor: "#1b1432",
+      textColor: "#ffffff",
+      links: [{ label: "Open", href: "/", ariaLabel: "Go to Home" }],
+    },
+  ];
+
+  const navItems = (items && items.length ? items : defaultItems).slice(0, 4);
+
+  const visibleNavItems = useMemo(() => {
+    return navItems.filter((item) => {
+      const href = item.links?.[0]?.href ?? "/";
+      if (!user && !isPublicRoute(href)) return false;
+      return true;
+    });
+  }, [navItems, user]);
+
+  const visibleCount = visibleNavItems.length;
+
+  const calculateHeight = () => {
+    const navEl = navRef.current;
+    if (!navEl) return 260;
+
+    const contentEl = navEl.querySelector(".card-nav-content") as HTMLElement | null;
+    if (!contentEl) return 260;
+
+    // Temporarily make measurable
+    const prevVisibility = contentEl.style.visibility;
+    const prevPointer = contentEl.style.pointerEvents;
+
+    contentEl.style.visibility = "visible";
+    contentEl.style.pointerEvents = "auto";
+
+    contentEl.offsetHeight;
+
+    const topBar = 60;
+    const padding = 16;
+    const contentHeight = contentEl.scrollHeight;
+
+    contentEl.style.visibility = prevVisibility;
+    contentEl.style.pointerEvents = prevPointer;
+
+    return topBar + contentHeight + padding;
+  };
+
+  const killTimeline = () => {
+    if (tlRef.current) {
+      tlRef.current.kill();
+      tlRef.current = null;
+    }
+  };
+
+  // ✅ Slow + smooth timeline
+  const createTimeline = () => {
+    const navEl = navRef.current;
+    if (!navEl) return null;
+
+    const cards = Array.from(navEl.querySelectorAll<HTMLElement>(".nav-card"));
+
+    gsap.set(navEl, { height: 60, overflow: "hidden" });
+    gsap.set(cards, { y: 60, opacity: 0 });
+
+    const tl = gsap.timeline({ paused: true });
+
+    tl.to(navEl, {
+      height: calculateHeight(), // ✅ MUST be a number
+      duration: 0.75,
+      ease: "power2.out",
+    });
+
+    tl.to(
+      cards,
+      {
+        y: 0,
+        opacity: 1,
+        duration: 0.65,
+        ease: "power2.out",
+        stagger: 0.12,
+      },
+      "-=0.35"
+    );
+
+    return tl;
+  };
+
+  // Keep a timeline ready whenever the visible cards change
+  useLayoutEffect(() => {
+    killTimeline();
+    tlRef.current = createTimeline();
+
+    // If already open, snap to open state
+    if (isExpanded && tlRef.current) tlRef.current.progress(1);
+
+    return () => killTimeline();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibleCount]);
+
+  // Resize + font-load recalculation
+  useLayoutEffect(() => {
+    const rebuild = () => {
+      killTimeline();
+      const newTl = createTimeline();
+      if (!newTl) return;
+      tlRef.current = newTl;
+      if (isExpanded) newTl.progress(1);
+    };
+
+    window.addEventListener("resize", rebuild);
+
+    const fontsReady = (document as any).fonts?.ready;
+    if (fontsReady?.then) fontsReady.then(rebuild).catch(() => {});
+
+    return () => window.removeEventListener("resize", rebuild);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isExpanded, visibleCount]);
+
+  // ✅ CRITICAL FIX: rebuild timeline right before opening so GSAP sees ALL cards
+  const toggleMenu = () => {
+    if (!navRef.current) return;
+
+    if (!isExpanded) {
+      // opening: rebuild timeline NOW to capture current DOM
+      killTimeline();
+      const tl = createTimeline();
+      if (!tl) return;
+      tlRef.current = tl;
+
+      setIsHamburgerOpen(true);
+      setIsExpanded(true);
+      tl.play(0);
+    } else {
+      // closing: reverse the existing timeline
+      const tl = tlRef.current;
+      if (!tl) {
+        setIsExpanded(false);
+        setIsHamburgerOpen(false);
+        return;
+      }
+
+      setIsHamburgerOpen(false);
+
+      tl.eventCallback("onReverseComplete", () => {
+        setIsExpanded(false);
+        tl.eventCallback("onReverseComplete", null); // prevent stacking callbacks
+      });
+
+      tl.reverse();
+    }
+  };
+
+  if (shouldHide) return null;
+
   return (
-    <div style={{ border: "1px solid #ddd", borderRadius: 12, padding: 12 }}>
-      <div style={{ fontSize: 12, opacity: 0.7 }}>{label}</div>
-      <div style={{ fontSize: 22, fontWeight: 700, marginTop: 6 }}>{value}</div>
-    </div>
+    <header className="nav-wrap">
+      <nav
+        ref={navRef}
+        className={`card-nav ${isExpanded ? "open" : ""} ${className}`}
+        style={{ backgroundColor: baseColor }}
+      >
+        <div className="card-nav-top">
+          <div
+            className={`hamburger-menu ${isHamburgerOpen ? "open" : ""}`}
+            onClick={toggleMenu}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                toggleMenu();
+              }
+            }}
+            role="button"
+            aria-label={isExpanded ? "Close menu" : "Open menu"}
+            tabIndex={0}
+            style={{ color: menuColor }}
+          >
+            <div className="hamburger-line" />
+            <div className="hamburger-line" />
+          </div>
+
+          <div className="logo-container">
+            {logo ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={logo} alt={logoAlt} className="logo" />
+            ) : (
+              <Link href="/" className="brand-text-link" aria-label="Go to home">
+                {brandText}
+              </Link>
+            )}
+          </div>
+
+          <div className="nav-right">
+            {user ? (
+              <>
+                <span className="user-pill" title={user.email ?? ""}>
+                  {user.displayName ?? user.email ?? "Signed in"}
+                </span>
+                <button
+                  type="button"
+                  className="card-nav-cta-button"
+                  style={{ backgroundColor: buttonBgColor, color: buttonTextColor }}
+                  onClick={handleLogout}
+                >
+                  Logout
+                </button>
+              </>
+            ) : (
+              <>
+                <Link
+                  className="card-nav-cta-button ghost"
+                  href="/login"
+                  style={{ backgroundColor: "rgba(255,255,255,0.06)", color: buttonTextColor || "#fff" }}
+                >
+                  Login
+                </Link>
+                <Link
+                  className="card-nav-cta-button"
+                  href="/signup"
+                  style={{ backgroundColor: buttonBgColor, color: buttonTextColor }}
+                >
+                  Sign Up
+                </Link>
+              </>
+            )}
+          </div>
+        </div>
+
+        <div className="card-nav-content" aria-hidden={!isExpanded}>
+          {visibleNavItems.map((item, idx) => {
+            const href = item.links?.[0]?.href ?? "/";
+            const ariaLabel = item.links?.[0]?.ariaLabel ?? item.label;
+
+            return (
+              <div
+                key={`${item.label}-${idx}`}
+                className="nav-card"
+                style={{ backgroundColor: item.bgColor, color: item.textColor }}
+              >
+                <div className="nav-card-label">{item.label}</div>
+
+                <Link
+                  href={href}
+                  aria-label={ariaLabel}
+                  className="nav-card-full-link"
+                  onClick={() => {
+                    if (isExpanded) toggleMenu();
+                  }}
+                >
+                  <span>Open</span>
+                  <ArrowIcon className="nav-card-link-icon" />
+                </Link>
+              </div>
+            );
+          })}
+        </div>
+      </nav>
+    </header>
   );
 }
