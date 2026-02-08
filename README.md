@@ -32,19 +32,18 @@ The Magic Bean Stock web app was built to combat inefficient, wasteful inventory
 * Sklearn - Used for experimenting with predictive models to forecast demand and estimate optimal reorder quantities.
 
 ## Obstacles Encountered:
-1. Scope vs. Hackathon Reality
-    One of our main challenges was managing scope within the limited time of a hackathon. Magic Bean Stock brings together inventory tracking, expiration management, demand forecasting, sustainability insights, authentication, and AI-driven recommendations, which required careful prioritization to remain feasible.
+1. Scope vs. Hackathon Reality  
+    One of our main challenges was managing scope within the limited time of a hackathon. Magic Bean Stock brings together inventory tracking, expiration management, demand forecasting, sustainability insights, authentication, and AI-driven recommendations, which required careful prioritization to remain feasible.  
     Many of these features are tightly interconnected, meaning progress in one area depended on progress in others. To address this, we focused on establishing a strong core workflow (inventory data feeding into analysis and resulting in actionable recommendations) while designing additional features to be extensible beyond the initial prototype.
-2. Inventory + Expiration Modeling
-    Another challenge was modeling inventory in a way that reflected real-world restaurant usage. Inventory management involves more than tracking item quantities; it also requires accounting for expiration dates, partial usage, overlapping stock batches, and projected sales.
+2. Inventory + Expiration Modeling  
+    Another challenge was modeling inventory in a way that reflected real-world restaurant usage. Inventory management involves more than tracking item quantities; it also requires accounting for expiration dates, partial usage, overlapping stock batches, and projected sales.  
     Designing this data structure was challenging because early decisions directly impacted our ability to perform accurate analysis and predictions later on. We iterated on our inventory model to support time-based analysis while keeping the system flexible and scalable for future expansion.
-3. Turning Sustainability Into Logic
-    A key challenge was translating sustainability goals into concrete system behavior. While reducing waste is a clear objective, implementing it required defining when inventory is considered at risk, what alternatives qualify as sustainable, and how recommendations should be prioritized.
+3. Turning Sustainability Into Logic  
+    A key challenge was translating sustainability goals into concrete system behavior. While reducing waste is a clear objective, implementing it required defining when inventory is considered at risk, what alternatives qualify as sustainable, and how recommendations should be prioritized.  
     This was challenging because there is no single correct solution; sustainability exists at the intersection of ethics, practicality, and business constraints. We focused on pragmatic sustainability by generating realistic, actionable recommendations that align with existing restaurant workflows rather than idealized solutions.
-
 
 ## Public Frameworks Used:
 - OpenAI - Used to generate AI-powered insights for inventory forecasting, waste reduction strategies, and sustainable alternatives.
 - Firebase - Provides authentication and cloud-based services for securely managing user accounts and application data.
-- Mapbox API - Enables location-based visualization and mapping features to map nearby food banks for donations.
+- Mapbox API - Enables location-based visualization and mapping features to map nearby food banks for donations.  
 All public frameworks were used in accordance with their respective usage policies
